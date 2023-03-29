@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+
+import yaml, requests, sys, git
+
+if sys.version_info.major < 3:
+    from backports import tempfile
+else:
+    import tempfile
+
+def load_config(filename):
+    print('Loading config: ' + filename)
+    with open(filename, 'r') as stream:
+        return yaml.safe_load(stream)
+
+def get_repos(api):
+    print('Fetching API response: ' + api['api_url'])
+    r = requests.get(api['api_url'])
+    json = r.json()
+    return json
+
+def arraytodict(arr, key):
+    rdict = {}
+    for item in arr:
+        rdict[item[key]] = item
+    return rdict
+
+def chk_repos(srcarray, tgtarray, cfg):
+    src = arraytodict(srcarray, cfg['source']['name_key'])
+    tgt = arraytodict(tgtarray, cfg['target']['name_key'])
+    repos = []
+    for tgtitem in tgt.keys():
+        if not tgtitem in src.keys():
+            print('Warning: target repo ' + tgtitem + ' does not exist in source repo list')
+    for srcitem in src.keys():
+        if not srcitem in tgt.keys():
+            print('Warning: source repo ' + srcitem + ' does not exist in target repo list')
+        else:
+            if not srcitem in cfg['ignore']:
+                repos.append({'name': srcitem, 'source': src[srcitem][cfg['source']['ssh_key']], 'target': tgt[srcitem][cfg['target']['ssh_key']]})
+            else:
+                print('Ignoring repo ' + srcitem)
+    return repos
+
+def sync_repo(source, target):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print('- Cloning...')
+        repo = git.Repo.clone_from(source, tmpdir)
+        print('- Pushing...')
+        remote = repo.create_remote('target', url=target)
+        remote.push()
+
+cfg = load_config('config.yaml')
+srcrepos = get_repos(cfg['source'])
+tgtrepos = get_repos(cfg['target'])
+repos = chk_repos(srcrepos, tgtrepos, cfg)
+n = 1
+for repo in repos:
+    print('Syncing [' + str(n) + '/' + str(len(repos)) + ']: ' + repo['source'] + ' -> ' + repo['target'])
+    sync_repo(repo['source'], repo['target'])
+    n += 1

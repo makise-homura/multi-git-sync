@@ -1,0 +1,12 @@
+source: {
+    api_url: 'https://api.github.com/users/makise-homura/repos?per_page=100',
+    name_key: name,
+    ssh_key: ssh_url
+}
+target: {
+    api_url: 'https://gitlab.com/api/v4/users/makise-homura/projects?pagination=keyset&per_page=100&order_by=id&sort=asc',
+    name_key: name,
+    ssh_key: ssh_url_to_repo
+}
+ignore:
+    - empty
